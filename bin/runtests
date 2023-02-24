@@ -1,0 +1,5 @@
+#!/usr/bin/env zsh
+0=${(%):-%x}
+setopt extended_glob
+cd ${0:A:h:h}
+zsh -f -- =clitest --list-run --progress dot --color always ./**/zsh-strings.md
