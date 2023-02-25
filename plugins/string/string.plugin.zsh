@@ -1,6 +1,6 @@
 #!/bin/zsh
 function string {
-  if [[ -p /dev/stdin ]]; then
+  if [[ ! -t 0 ]] && [[ -p /dev/stdin ]]; then
     if (( $# > 0 )); then
       set -- "$@" "${(@f)$(cat)}"
     else
