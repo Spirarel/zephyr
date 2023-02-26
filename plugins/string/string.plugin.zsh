@@ -1,22 +1,17 @@
 #!/bin/zsh
 function string {
   if [[ ! -t 0 ]] && [[ -p /dev/stdin ]]; then
-    if (( $# > 0 )); then
+    if (( $# )); then
       set -- "$@" "${(@f)$(cat)}"
     else
       set -- "${(@f)$(cat)}"
     fi
   fi
 
-  local cmd=$1
-  if [[ $# -eq 0 ]]; then
-    echo >&2 "string: Expected a subcommand to follow the command"
-    return 2
-  elif (( $+functions[string-$cmd] )); then
-    string-$cmd "$@[2,-1]"
+  if (( $+functions[string-$1] )); then
+    string-$1 "$@[2,-1]"
   else
-    echo >&2 "string: Subcommand '$cmd' is not valid"
-    return 2
+    echo >&2 "string: Subcommand '$1' is not valid." && return 1
   fi
 }
 
@@ -88,28 +83,3 @@ function string-pad {
     eval "echo \"\${($pad)s}\""
   done
 }
-
-# function string-pad {
-#   local s w c
-#   local -a o_char o_width o_right
-#   zparseopts -D -M    -- \
-#     r=o_right  -right=r  \
-#     c:=o_char  -char:=c  \
-#     w:=o_width -width:=w ||
-#     return 1
-#   (( $#o_char )) && c=$o_char[-1] || c=' '
-#   if (( $#o_width )); then
-#     w=$o_width[-1]
-#   else
-#     for s in "$@"
-#       [[ $#s -gt $w ]] && w=$#s
-#   fi
-#   for s in "$@"; do
-#     if (( $#o_right )); then
-#       echo ${(r($w)(${c}))s}
-#     else
-#       echo ${(l($w)(${c}))s}
-#     fi
-#   done
-#   echo "char: $c"
-# }
