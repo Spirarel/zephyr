@@ -71,21 +71,17 @@ function string-trim {
 }
 
 function string-sub {
-  local s=0 e=-1 l=
-  local -a o_start o_end o_len
+}
 
-  zparseopts -D -M --     \
-    s:=o_start -start:=s  \
-    e:=o_end   -end:=e    \
-    l:=o_len   -length:=l ||
-    return 1
-
-  if (( $#o_start )); then
-    s=$o_start[-1]
-    [[ "$s" -eq "$s" ]] || return 1
-
-  fi
-
+function string-pad {
+  local s d pad; local -A opts=(-c ' ' -w 0)
+  zparseopts -D -K -A opts -- c: w: r
+  for s in "$@"; [[ $#s -gt $opts[-w] ]] && opts[-w]=$#s
+  for s in "$@"; do
+    [[ -v opts[-r] ]] && d=r || d=l
+    pad="$d:$opts[-w]::$opts[-c]:"
+    eval "echo \"\${($pad)s}\""
+  done
 }
 
 # function string-pad {
