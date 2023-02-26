@@ -404,6 +404,16 @@ This file passes [clitests][clitest]:
 zsh -f -- =clitest --list-run --progress dot --color always ./**/zsh-strings.md
 ```
 
+### Additional clitests
+
+```zsh
+$ string foo #=> --exit 1
+$ string foo
+string: Subcommand 'foo' is not valid.
+$
+```
+
+
 [1]: https://zsh.sourceforge.io/Doc/Release/Expansion.html#Modifiers
 [2]: https://zsh.sourceforge.io/Doc/Release/Expansion.html#Parameter-Expansion-Flags
 [3]: https://zsh.sourceforge.io/Doc/Release/Zsh-Modules.html#The-zsh_002fpcre-Module
