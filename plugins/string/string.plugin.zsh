@@ -71,6 +71,11 @@ function string-trim {
 }
 
 function string-sub {
+  local s; local -A opts
+  zparseopts -D -A opts -- s: l:
+  for s in "$@"; do
+    echo ${s:${opts[-s]:-0}:${opts[-l]:-$#s}}
+  done
 }
 
 function string-pad {
