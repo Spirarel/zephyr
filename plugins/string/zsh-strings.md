@@ -2,42 +2,16 @@
 
 Fish has a utility for [string maniplulation][string].
 
-This is how you can do the same things with Zsh builtins.
+This document describes how you can do all the same things in Zsh.
 
 References:
 - [Zsh regex][3]
 - [String modifiers][1]
 - [String expansion][2]
 
-Setup:
-```zsh
-$ source $PWD/plugins/string/string.plugin.zsh
-$
-```
 
-## Length
 
-Get the length of a string with `#`.
-This is similar to `string length` in [fish][length].
-
-```zsh
-$ str="abcdefghijklmnopqrstuvwxyz"
-$ echo ${#str}
-26
-$
-```
-
-Or, you can use Zephyr's `string length` convenience function to do the same thing:
-```zsh
-$ string length '' a ab abc
-0
-1
-2
-3
-$
-```
-
-## Pad/Trim
+## string pad
 
 Left pad a string with the [l expansion flag][2].
 Right pad a string with the [r expansion flag][2].
@@ -63,6 +37,22 @@ $ echo ${(r:10::-:)str}
 abc-------
 $
 ```
+
+```zsh
+##? pad strings to a fixed width
+function string-pad {
+  local s d pad; local -A opts=(-c ' ' -w 0)
+  zparseopts -D -K -A opts -- c: w: r
+  for s in "$@"; [[ $#s -gt $opts[-w] ]] && opts[-w]=$#s
+  for s in "$@"; do
+    [[ -v opts[-r] ]] && d=r || d=l
+    pad="$d:$opts[-w]::$opts[-c]:"
+    eval "echo \"\${($pad)s}\""
+  done
+}
+```
+
+## string trim
 
 Trim requires the use of `sed`. This is similar to `string trim` in [fish][trim].
 
@@ -106,28 +96,17 @@ a b c
 $
 ```
 
-## Substring
-
-Get a substing from string with comma indexing `[start,end]`. With this method, indexing starts at 1.
-This is similar to `string sub` in [fish][sub].
-
 ```zsh
-$ str="abcdefghijklmnopqrstuvwxyz"
-$ echo ${str[3,6]}
-cdef
-$
+##? remove trailing whitespace
+function string-trim {
+  (( $# )) || return 1
+  for s in "$@"; do
+    echo $s | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+  done
+}
 ```
 
-You can also use the `${var:offset:length}` syntax. With this method, indexing starts at 0.
 
-```zsh
-$ str="abcdefghijklmnopqrstuvwxyz"
-$ echo ${str:3:6}
-defghi
-$ echo ${str:(-4)}
-wxyz
-$
-```
 
 ## Repeat
 
@@ -140,6 +119,41 @@ $ abc3=$(printf "$str%.0s" {1..3})
 $ echo $abc3
 abcabcabc
 $
+```
+
+```zsh
+# simple string repeat
+function string-repeat {
+  (( $# )) || return 1
+  local s
+  local -A opts=(-n 1)
+  zparseopts -D -K -A opts -- n:
+  for s in "$@"; do
+    printf "$s%.0s" {1..$opts[-n]}
+    printf "\n"
+  done
+}
+```
+
+If you want to support `-m` for a max string length and `-N` to suppress newlines just like Fish's `string repeat` command does, you could implement it this way:
+
+```zsh
+##? multiply a string
+function string-repeat {
+  (( $# )) || return 1
+  local s n; local -A opts
+  zparseopts -D -A opts -- n: m: N
+  n=${opts[-n]:-$opts[-m]}
+  for s in "$@"; do
+    if [[ -v opts[-m] ]]; then
+      s=$(printf "$s%.0s" {1..$n})
+      printf ${s:0:$opts[-m]}
+    else
+      printf "$s%.0s" {1..$n}
+    fi
+    [[ -v opts[-N] ]] || printf '\n'
+  done
+}
 ```
 
 ## Escape/Unescape
@@ -196,7 +210,26 @@ $'\e[0;34mthis is blue\e[0;0m'
 $
 ```
 
-Or, you can use Zephyr's `string escape` and `string unescape` convenience functions to do the same thing:
+Or, you can use write your own `string escape` and `string unescape` convenience functions to do the same thing:
+
+```zsh
+function string-escape {
+  (( $# )) || return 1
+  local s
+  for s in "$@"; do
+    echo $s:q
+  done
+}
+
+function string-unescape {
+  (( $# )) || return 1
+  local s
+  for s in "$@"; do
+    echo $s:Q
+  done
+}
+```
+
 ```zsh
 $ excited_man='\\o/'
 $ echo $excited_man
@@ -295,43 +328,6 @@ z
 $
 ```
 
-## Upper/Lower
-
-Convert a string to uppercase with the [u modifier][1].
-This is similar to `string upper` in [fish][upper].
-
-```zsh
-$ str="AbCdEfGhIjKlMnOpQrStUvWxYz"
-$ echo "${str:u}"
-ABCDEFGHIJKLMNOPQRSTUVWXYZ
-$
-```
-
-Or, you can use Zephyr's `string upper` convenience function to do the same thing:
-
-```zsh
-$ string upper $str
-ABCDEFGHIJKLMNOPQRSTUVWXYZ
-$
-```
-
-Convert a string to lowercase with the [l modifier][1].
-This is similar to `string lower` in [fish][lower].
-
-```zsh
-$ str="AbCdEfGhIjKlMnOpQrStUvWxYz"
-$ echo "${str:l}"
-abcdefghijklmnopqrstuvwxyz
-$
-```
-
-Or, you can use Zephyr's `string lower` convenience function to do the same thing:
-
-```zsh
-$ string lower $str
-abcdefghijklmnopqrstuvwxyz
-$
-```
 
 ## Match/Replace
 
@@ -396,6 +392,43 @@ $ echo $#arr
 $
 ```
 
+## string command
+
+Fish's [`string` command][string] wraps all this functionality and handles pipe input too. You can also easily accomplish the same thing in Zsh.
+
+```zsh
+##? manipulate strings
+function string {
+  if [[ ! -t 0 ]] && [[ -p /dev/stdin ]]; then
+    if (( $# )); then
+      set -- "$@" "${(@f)$(cat)}"
+    else
+      set -- "${(@f)$(cat)}"
+    fi
+  fi
+
+  if (( $+functions[string-$1] )); then
+    string-$1 "$@[2,-1]"
+  else
+    echo >&2 "string: Subcommand '$1' is not valid." && return 1
+  fi
+}
+```
+
+Then, all your string commands can accept piped input too:
+
+```zsh
+$ printf '%s\n' a bb ccc | string length
+1
+2
+3
+$ printf '%s\n' a bb ccc | string pad -c.
+..a
+.bb
+ccc
+$
+```
+
 ## Tests
 
 This file passes [clitests][clitest]:
@@ -418,21 +451,21 @@ $
 [2]: https://zsh.sourceforge.io/Doc/Release/Expansion.html#Parameter-Expansion-Flags
 [3]: https://zsh.sourceforge.io/Doc/Release/Zsh-Modules.html#The-zsh_002fpcre-Module
 [4]: https://zsh.sourceforge.io/Doc/Release/Expansion.html#Parameter-Expansion
-[collect]: https://fishshell.com/docs/current/cmds/string-collect.html
-[escape]: https://fishshell.com/docs/current/cmds/string-escape.html
-[join]: https://fishshell.com/docs/current/cmds/string-join.html
-[join0]: https://fishshell.com/docs/current/cmds/string-join0.html
-[length]: https://fishshell.com/docs/current/cmds/string-length.html
-[lower]: https://fishshell.com/docs/current/cmds/string-lower.html
-[match]: https://fishshell.com/docs/current/cmds/string-match.html
-[pad]: https://fishshell.com/docs/current/cmds/string-pad.html
-[repeat]: https://fishshell.com/docs/current/cmds/string-repeat.html
-[replace]: https://fishshell.com/docs/current/cmds/string-replace.html
-[split]: https://fishshell.com/docs/current/cmds/string-split.html
-[split0]: https://fishshell.com/docs/current/cmds/string-split0.html
 [string]: https://fishshell.com/docs/current/cmds/string.html
-[sub]: https://fishshell.com/docs/current/cmds/string-sub.html
-[trim]: https://fishshell.com/docs/current/cmds/string-trim.html
-[unescape]: https://fishshell.com/docs/current/cmds/string-unescape.html
-[upper]: https://fishshell.com/docs/current/cmds/string-upper.html
+[string-collect]: https://fishshell.com/docs/current/cmds/string-collect.html
+[string-escape]: https://fishshell.com/docs/current/cmds/string-escape.html
+[string-join]: https://fishshell.com/docs/current/cmds/string-join.html
+[string-join0]: https://fishshell.com/docs/current/cmds/string-join0.html
+[string-length]: https://fishshell.com/docs/current/cmds/string-length.html
+[string-lower]: https://fishshell.com/docs/current/cmds/string-lower.html
+[string-match]: https://fishshell.com/docs/current/cmds/string-match.html
+[string-pad]: https://fishshell.com/docs/current/cmds/string-pad.html
+[string-repeat]: https://fishshell.com/docs/current/cmds/string-repeat.html
+[string-replace]: https://fishshell.com/docs/current/cmds/string-replace.html
+[string-split]: https://fishshell.com/docs/current/cmds/string-split.html
+[string-split0]: https://fishshell.com/docs/current/cmds/string-split0.html
+[string-sub]: https://fishshell.com/docs/current/cmds/string-sub.html
+[string-trim]: https://fishshell.com/docs/current/cmds/string-trim.html
+[string-unescape]: https://fishshell.com/docs/current/cmds/string-unescape.html
+[string-upper]: https://fishshell.com/docs/current/cmds/string-upper.html
 [clitest]: https://github.com/aureliojargas/clitest
